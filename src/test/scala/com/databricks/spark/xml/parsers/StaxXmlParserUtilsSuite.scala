@@ -28,7 +28,7 @@ import com.databricks.spark.xml.XmlOptions
 
 final class StaxXmlParserUtilsSuite extends AnyFunSuite with BeforeAndAfterAll {
 
-  private val factory = StaxXmlParserUtils.factory
+  private val factory = StaxXmlParserUtils.getFactory(false )
 
   test("Test if elements are skipped until the given event type") {
     val input = <ROW><id>2</id><name>Sam Mad Dog Smith</name><amount>93</amount></ROW>

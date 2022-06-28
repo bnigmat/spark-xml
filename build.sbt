@@ -24,7 +24,8 @@ libraryDependencies ++= Seq(
   "com.novocode" % "junit-interface" % "0.11" % Test,
   "org.apache.spark" %% "spark-core" % sparkVersion % Provided,
   "org.apache.spark" %% "spark-sql" % sparkVersion % Provided,
-  "org.scala-lang" % "scala-library" % scalaVersion.value % Provided
+  "org.scala-lang" % "scala-library" % scalaVersion.value % Provided,
+  "org.glassfish.jaxb" % "xsom" % "3.0.2"
 )
 
 publishMavenStyle := true

@@ -80,7 +80,7 @@ private[xml] object StaxXmlParser extends Serializable {
       xsdSchema.foreach { schema =>
         schema.newValidator().validate(new StreamSource(new StringReader(xml)))
       }
-      val parser = StaxXmlParserUtils.filteredReader(xml)
+      val parser = StaxXmlParserUtils.filteredReader(xml, options.namespaceAware)
       val rootAttributes = StaxXmlParserUtils.gatherRootAttributes(parser)
       Some(convertObject(parser, schema, options, rootAttributes))
     } catch {

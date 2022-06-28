@@ -28,16 +28,16 @@ import com.databricks.spark.xml.XmlOptions
 
 private[xml] object StaxXmlParserUtils {
 
-  private[xml] val factory: XMLInputFactory = {
+  private[xml] def getFactory(namespaceAware: Boolean): XMLInputFactory = {
     val factory = XMLInputFactory.newInstance()
-    factory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, false)
+    factory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, namespaceAware)
     factory.setProperty(XMLInputFactory.IS_COALESCING, true)
     factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false)
     factory.setProperty(XMLInputFactory.SUPPORT_DTD, false)
     factory
   }
 
-  def filteredReader(xml: String): XMLEventReader = {
+  def filteredReader(xml: String, namespaceAware: Boolean = false): XMLEventReader = {
     val filter = new EventFilter {
       override def accept(event: XMLEvent): Boolean =
         // Ignore comments and processing instructions
@@ -48,6 +48,7 @@ private[xml] object StaxXmlParserUtils {
     }
     // It does not have to skip for white space, since `XmlInputFormat`
     // always finds the root tag without a heading space.
+    val factory = getFactory(namespaceAware)
     val eventReader = factory.createXMLEventReader(new StringReader(xml))
     factory.createFilteredReader(eventReader, filter)
   }
@@ -112,7 +113,7 @@ private[xml] object StaxXmlParserUtils {
   def getName(name: QName, options: XmlOptions): String = {
     val localPart = name.getLocalPart
     // Ignore namespace prefix up to last : if configured
-     if (options.ignoreNamespace) {
+    if (options.ignoreNamespace && !options.namespaceAware) {
       localPart.split(":").last
     } else {
       localPart

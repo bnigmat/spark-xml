@@ -81,8 +81,7 @@ private[xml] object InferSchema {
           xsdSchema.foreach { schema =>
             schema.newValidator().validate(new StreamSource(new StringReader(xml)))
           }
-
-          val parser = StaxXmlParserUtils.filteredReader(xml)
+          val parser = StaxXmlParserUtils.filteredReader(xml, options.namespaceAware)
           val rootAttributes = StaxXmlParserUtils.gatherRootAttributes(parser)
           Some(inferObject(parser, options, rootAttributes))
         } catch {
@@ -182,7 +181,7 @@ private[xml] object InferSchema {
     while (!shouldStop) {
       parser.nextEvent match {
         case e: StartElement =>
-          val attributes = e.getAttributes.asScala.map(_.asInstanceOf[Attribute]).toArray
+          val attributes = e.getAttributes.asScala.map(_.asInstanceOf[Attribute]).filter{ attr => !attr.getName.getLocalPart.equals("nil")}.toArray
           val valuesMap = StaxXmlParserUtils.convertAttributesToValuesMap(attributes, options)
           val inferredType = inferField(parser, options) match {
             case st: StructType if valuesMap.nonEmpty =>

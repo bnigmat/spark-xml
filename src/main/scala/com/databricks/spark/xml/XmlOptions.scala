@@ -18,6 +18,7 @@ package com.databricks.spark.xml
 import java.nio.charset.StandardCharsets
 
 import com.databricks.spark.xml.util._
+import org.apache.hadoop.mapred.FileInputFormat
 
 /**
  * Options for the XML data source.
@@ -64,6 +65,7 @@ private[xml] class XmlOptions(
   val ignoreNamespace = parameters.get("ignoreNamespace").map(_.toBoolean).getOrElse(false)
   val timestampFormat = parameters.get("timestampFormat")
   val dateFormat = parameters.get("dateFormat")
+  val namespaceAware = parameters.get("namespaceAware").map(_.toBoolean).getOrElse(false)
 }
 
 private[xml] object XmlOptions {
