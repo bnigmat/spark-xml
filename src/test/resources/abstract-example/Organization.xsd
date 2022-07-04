@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema
+	targetNamespace="persistence"
+        xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+        xmlns:impl="persistence" 
+	xmlns:base="base.persistence"
+	xmlns:persistence="persistence"
+	elementFormDefault="qualified">
+	<xsd:include schemaLocation="IssuerUser.xsd"/>
+	<xsd:import namespace="base.persistence" schemaLocation="BaseDocument.xsd"/>
+    <xsd:element name="organization" type="impl:Organization"/>
+	<xsd:complexType name="Organization">
+    <xsd:complexContent>
+    <xsd:extension base="base:BaseDocument">
+        <xsd:sequence>
+	        <xsd:element name="organizationIdentifier" type="xsd:string" minOccurs="1" maxOccurs="1" />
+	        <xsd:element name="officeSymbolText" type="xsd:string" minOccurs="0" maxOccurs="1" />
+	        <xsd:element name="businessStatusDate" type="xsd:date" minOccurs="0" maxOccurs="1" />
+	        <xsd:element name="organizationURL" type="xsd:string" minOccurs="0" maxOccurs="1"/>
+	        <xsd:element name="organizationType" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+	        <xsd:element name="organizationAddress" type="xsd:string" minOccurs="0" maxOccurs="1"/>
+	        <xsd:element name="organizationTelephone" type="xsd:string" minOccurs="0" maxOccurs="1"/>
+	        <xsd:element name="organizationBusinessStatus" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+	        <xsd:element name="organizationEmail" type="xsd:string" minOccurs="0" maxOccurs="1"/>
+	        <xsd:element name="issuerUser" type="persistence:IssuerUser" minOccurs="0" maxOccurs="100"/>
+        </xsd:sequence>
+    </xsd:extension>
+    </xsd:complexContent>
+    </xsd:complexType>
+</xsd:schema>

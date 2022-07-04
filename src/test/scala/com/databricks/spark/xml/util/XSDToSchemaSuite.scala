@@ -18,10 +18,11 @@ package com.databricks.spark.xml.util
 
 import java.nio.file.Paths
 
-import org.apache.spark.sql.types.{ArrayType, DecimalType, FloatType, LongType, StringType}
+import org.apache.spark.sql.types.{ArrayType, BooleanType, DateType, DecimalType, FloatType, LongType, StringType, TimestampType}
 import org.scalatest.funsuite.AnyFunSuite
-
 import com.databricks.spark.xml.TestUtils._
+
+import scala.io.Source
 
 class XSDToSchemaSuite extends AnyFunSuite {
   
@@ -125,4 +126,124 @@ class XSDToSchemaSuite extends AnyFunSuite {
     assert(parsedSchema === expectedSchema)
   }
 
+  test("Test exclude root") {
+    val parsedSchema = XSDToSchema.read(Paths.get(s"$resDir/choice.xsd"), "", true)
+    val expectedSchema = buildSchema(
+      field("foo"),
+      field("bar"),
+      field("baz"))
+    assert(expectedSchema === parsedSchema)
+  }
+
+  test("Test very complex schema parsing") {
+    val parsedSchema = XSDToSchema.read(Paths.get(s"$resDir/abstract-example/event-logging.xsd")).json
+    val source = Source.fromFile(Paths.get(s"$resDir/abstract-example/event-logging.json").toFile)
+    val expectedSchema = try source.getLines().mkString("\n") finally source.close()
+    assert(expectedSchema === parsedSchema)
+  }
+
+  test("Test schema with abstract types") {
+    val parsedSchema = XSDToSchema.read(Paths.get(s"$resDir/abstract-example/DeliveredMessage.xsd"), "deliveredMessage" )
+    val expectedSchema = buildSchema(
+      field("deliveredMessage",
+        struct(
+          field("objectId",StringType,false),
+          field("lastModified",TimestampType,false),
+          field("lastModifiedBy",StringType,false),
+          field("deleted",BooleanType,true),
+          field("objectCreationTime",TimestampType,true),
+          field("deliveredDate",DateType,false),
+          field("readDate",DateType,true),
+          field("originalMessage",StringType,false),
+          field("managingUser",StringType,false),
+          field("sentDate",DateType,false),
+          field("subjectText",StringType,false),
+          field("contentText",StringType,false),
+          field("contentMimeType",StringType,false),
+          field("messageType",
+            struct(
+              field("deletableIndicator",BooleanType,false),
+              field("messageTypeCode",StringType,false),
+              field("messageTypeName",StringType,false)
+            ),false
+          ),
+          field("containedAttachment",
+            ArrayType(
+              struct(
+                field("attachmentIdentifier", StringType, false),
+                field("attachmentName",StringType,false),
+                field("dsrsIdentifier",StringType,true)
+              )
+            ), true
+          ),
+          field("sendingSystemAccount",StringType,false)
+        ), nullable = false
+      )
+    )
+    assert(expectedSchema === parsedSchema)
+  }
+
+  test("Test substitutionGroup with abstract type") {
+    val parsedSchema = XSDToSchema.read(Paths.get(s"$resDir/abstract-example/emf-event.xsd"), "emf-event").json
+    val source = Source.fromFile(Paths.get(s"$resDir/abstract-example/emf-event.json").toFile)
+    val expectedSchema = try source.getLines().mkString("\n") finally source.close()
+    assert(expectedSchema === parsedSchema)
+  }
+
+  test("Test schema with circular references") {
+    val parsedSchema = XSDToSchema.read(Paths.get(s"$resDir/abstract-example/Organization.xsd") )
+    // Organization -> issuerUser -> organization
+    val expectedSchema = buildSchema(
+      field("organization",
+        struct(
+          field("objectId",StringType,false),
+          field("lastModified",TimestampType,false),
+          field("lastModifiedBy",StringType,false),
+          field("deleted",BooleanType,true),
+          field("objectCreationTime",TimestampType,true),
+          field("organizationIdentifier",StringType,false),
+          field("officeSymbolText",StringType,true),
+          field("businessStatusDate",DateType,true),
+          field("organizationURL",StringType,true),
+          field("organizationType",StringType,false),
+          field("organizationAddress",StringType,true),
+          field("organizationTelephone",StringType,true),
+          field("organizationBusinessStatus",StringType,false),
+          field("organizationEmail",StringType,true),
+          field("issuerUser",
+            ArrayType(
+              struct(
+                field("emailAddressName", StringType, false),
+                field("person",
+                  struct(
+                    field("objectId",StringType,false),
+                    field("lastModified",TimestampType,false),
+                    field("lastModifiedBy",StringType,false),
+                    field("deleted",BooleanType,true),
+                    field("objectCreationTime",TimestampType,true),
+                    field("firstName", StringType, false),
+                    field("middleName", StringType, true),
+                    field("lastName", StringType, false),
+                    field("salutationName",StringType,true),
+                    field("suffixName",StringType,true),
+                    field("birthDate",DateType,true),
+                    field("countyName",StringType,true),
+                    field("countyFipsCode",StringType,true),
+                    field("zipPlus4Code",StringType,true),
+                    field("streetName1",StringType,true),
+                    field("streetName2",StringType,true),
+                    field("cityName",StringType,true),
+                    field("stateCode",StringType,true),
+                    field("countryCode",StringType,true)
+                  ), false),
+                field("role",StringType,false),
+                field("priority",StringType,false)
+              )
+            ), true
+          )
+        ), nullable = false
+      )
+    )
+    assert(expectedSchema === parsedSchema)
+  }
 }

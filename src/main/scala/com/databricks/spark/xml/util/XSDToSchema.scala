@@ -17,18 +17,15 @@ package com.databricks.spark.xml.util
 import java.io.{File, FileInputStream, InputStreamReader, StringReader}
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
-
 import scala.collection.JavaConverters._
 import org.apache.spark.annotation.Experimental
 import org.apache.spark.sql.types._
 import org.apache.ws.commons.schema._
 import org.apache.ws.commons.schema.constants.Constants
-
 import com.databricks.spark.xml.XmlOptions
 
 /**
- * Utility to generate a Spark schema from an XSD. Not all XSD schemas are simple tabular schemas,
- * so not all elements or XSDs are supported.
+ * Utility to generate a Spark schema from an XSD.
  */
 @Experimental
 object XSDToSchema {
@@ -43,13 +40,21 @@ object XSDToSchema {
    * @return Spark-compatible schema
    */
   @Experimental
-  def read(xsdFile: File): StructType = {
+  def read(xsdFile: File, rootElement: String = "", flattenRoot: Boolean = false): StructType = {
     val xmlSchemaCollection = new XmlSchemaCollection()
     xmlSchemaCollection.setBaseUri(xsdFile.getParent)
     val xmlSchema = xmlSchemaCollection.read(
       new InputStreamReader(new FileInputStream(xsdFile), StandardCharsets.UTF_8))
-
-    getStructType(xmlSchema)
+    if (flattenRoot){
+      val dataType = getStructType(xmlSchema, rootElement)
+      if (dataType.fields.length == 1 && dataType(0).dataType.isInstanceOf[StructType]){
+        dataType(0).dataType.asInstanceOf[StructType]
+      } else {
+        dataType
+      }
+    } else {
+      getStructType(xmlSchema, rootElement)
+    }
   }
 
   /**
@@ -63,6 +68,12 @@ object XSDToSchema {
    */
   @Experimental
   def read(xsdFile: Path): StructType = read(xsdFile.toFile)
+
+  @Experimental
+  def read(xsdFile: Path, rootElement: String): StructType = read(xsdFile.toFile, rootElement)
+
+  @Experimental
+  def read(xsdFile: Path, rootElement: String, flattenRoot: Boolean): StructType = read(xsdFile.toFile, rootElement, flattenRoot)
 
   /**
    * Reads a schema from an XSD as a string.
@@ -79,8 +90,7 @@ object XSDToSchema {
     getStructType(xmlSchema)
   }
 
-
-  private def getStructField(xmlSchema: XmlSchema, schemaType: XmlSchemaType): StructField = {
+  private def getStructField(xmlSchema: XmlSchema, schemaType: XmlSchemaType, parents: List[XmlSchemaType] = List()): StructField = {
     schemaType match {
       // xs:simpleType
       case simpleType: XmlSchemaSimpleType =>
@@ -130,89 +140,43 @@ object XSDToSchema {
             content.getContent match {
               case extension: XmlSchemaSimpleContentExtension =>
                 val baseStructField = getStructField(xmlSchema,
-                  xmlSchema.getParent.getTypeByQName(extension.getBaseTypeName))
+                  xmlSchema.getParent.getTypeByQName(extension.getBaseTypeName), parents)
                 val value = StructField("_VALUE", baseStructField.dataType)
-                val attributes = extension.getAttributes.asScala.map {
-                  case attribute: XmlSchemaAttribute =>
-                    val baseStructField = getStructField(xmlSchema,
-                      xmlSchema.getParent.getTypeByQName(attribute.getSchemaTypeName))
-                    StructField(s"_${attribute.getName}", baseStructField.dataType,
-                      attribute.getUse != XmlSchemaUse.REQUIRED)
-                }.toSeq
+                val attributes = getAttributeFields(xmlSchema, extension.getAttributes.asScala.toList)
                 StructField(complexType.getName, StructType(value +: attributes))
               case unsupported =>
                 throw new IllegalArgumentException(s"Unsupported content: $unsupported")
             }
-          case null =>
-            val childFields =
-              complexType.getParticle match {
-                // xs:all
-                case all: XmlSchemaAll =>
-                  all.getItems.asScala.map {
-                    case element: XmlSchemaElement =>
-                      val baseStructField = getStructField(xmlSchema, element.getSchemaType)
-                      val nullable = element.getMinOccurs == 0
-                      if (element.getMaxOccurs == 1) {
-                        StructField(element.getName, baseStructField.dataType, nullable)
-                      } else {
-                        StructField(element.getName, ArrayType(baseStructField.dataType), nullable)
-                      }
-                  }.toSeq
-                // xs:choice
-                case choice: XmlSchemaChoice =>
-                  choice.getItems.asScala.map {
-                    case element: XmlSchemaElement =>
-                      val baseStructField = getStructField(xmlSchema, element.getSchemaType)
-                      if (element.getMaxOccurs == 1) {
-                        StructField(element.getName, baseStructField.dataType, true)
-                      } else {
-                        StructField(element.getName, ArrayType(baseStructField.dataType), true)
-                      }
-                    case any: XmlSchemaAny =>
-                      val dataType = if (any.getMaxOccurs > 1) ArrayType(StringType) else StringType
-                      StructField(XmlOptions.DEFAULT_WILDCARD_COL_NAME, dataType, true)
-                  }.toSeq
-                // xs:sequence
-                case sequence: XmlSchemaSequence =>
-                  // flatten xs:choice nodes
-                  sequence.getItems.asScala.flatMap { _ match {
-                    case choice: XmlSchemaChoice =>
-                      choice.getItems.asScala.map { e => 
-                        val xme = e.asInstanceOf[XmlSchemaElement]
-                        val baseType = getStructField(xmlSchema, xme.getSchemaType).dataType
-                        val dataType = if (xme.getMaxOccurs > 1) ArrayType(baseType) else baseType
-                        StructField(xme.getName, dataType, true)
-                      }
-                    case e: XmlSchemaElement =>
-                      val baseType = getStructField(xmlSchema, e.getSchemaType).dataType
-                      val dataType = if (e.getMaxOccurs > 1) ArrayType(baseType) else baseType
-                      val nullable = e.getMinOccurs == 0
-                      Seq(StructField(e.getName, dataType, nullable))
-                    case any: XmlSchemaAny =>
-                      val dataType =
-                        if (any.getMaxOccurs > 1) ArrayType(StringType) else StringType
-                      val nullable = any.getMinOccurs == 0
-                      Seq(StructField(XmlOptions.DEFAULT_WILDCARD_COL_NAME, dataType, nullable))
-                    case unsupported =>
-                      throw new IllegalArgumentException(s"Unsupported item: $unsupported")
+          case complexContext: XmlSchemaComplexContent =>
+            val childFields = complexContext.getContent match {
+              case extension: XmlSchemaComplexContentExtension =>
+                val baseFields: Seq[StructField] = if (extension.getBaseTypeName != null) {
+                  xmlSchema.getTypeByName(extension.getBaseTypeName) match {
+                    case complexType: XmlSchemaComplexType =>
+                      getStructField(xmlSchema, complexType).dataType.asInstanceOf[StructType].fields
+                    case simpleType: XmlSchemaSimpleType =>
+                      Seq(getStructField(xmlSchema, simpleType))
+                    case _ =>
+                      Seq.empty
+                  }
+                } else Seq.empty
+                extension.getParticle match {
+                  case particle: XmlSchemaGroupParticle =>
+                    baseFields ++ getParticleFields(xmlSchema, particle, parents)
+                  case _ =>
+                    if (extension.getAttributes.size() > 0){
+                      baseFields ++ getAttributeFields(xmlSchema, extension.getAttributes.asScala.toList)
+                    } else {
+                      baseFields ++ Seq.empty
                     }
-                  }.toSeq
-                case null =>
-                  Seq.empty
-                case unsupported =>
-                  throw new IllegalArgumentException(s"Unsupported particle: $unsupported")
-              }
-            val attributes = complexType.getAttributes.asScala.map {
-              case attribute: XmlSchemaAttribute =>
-                val attributeType = attribute.getSchemaTypeName match {
-                  case null =>
-                    StringType
-                  case t =>
-                    getStructField(xmlSchema, xmlSchema.getParent.getTypeByQName(t)).dataType
                 }
-                StructField(s"_${attribute.getName}", attributeType,
-                  attribute.getUse != XmlSchemaUse.REQUIRED)
-            }.toSeq
+              case _ =>
+                Seq.empty
+            }
+            StructField(complexType.getName, StructType(childFields))
+          case null =>
+            val childFields = getParticleFields(xmlSchema, complexType.getParticle, parents)
+            val attributes = getAttributeFields(xmlSchema, complexType.getAttributes.asScala.toList)
             StructField(complexType.getName, StructType(childFields ++ attributes))
           case unsupported =>
             throw new IllegalArgumentException(s"Unsupported content model: $unsupported")
@@ -222,15 +186,146 @@ object XSDToSchema {
     }
   }
 
-  private def getStructType(xmlSchema: XmlSchema): StructType = {
-    StructType(xmlSchema.getElements.asScala.toSeq.map { case (_, schemaElement) =>
-      val schemaType = schemaElement.getSchemaType
-      // if (schemaType.isAnonymous) {
-      //   schemaType.setName(qName.getLocalPart)
-      // }
-      val rootType = getStructField(xmlSchema, schemaType)
-      StructField(schemaElement.getName, rootType.dataType, schemaElement.getMinOccurs == 0)
-    })
+  private def getParticleFields(xmlSchema: XmlSchema, particle: XmlSchemaParticle, parents: List[XmlSchemaType] = List(), isChoice: Boolean = false): Seq[StructField] = {
+    val childFields = particle match {
+
+      case any: XmlSchemaAny =>
+        val dataType = if (any.getMaxOccurs > 1) ArrayType(StringType) else StringType
+        val nullable = any.getMinOccurs == 0 || isChoice
+        Seq(StructField(XmlOptions.DEFAULT_WILDCARD_COL_NAME, dataType, nullable))
+
+      case element: XmlSchemaElement =>
+        if (element.getSchemaType != null) {
+          val baseType = getStructField(xmlSchema, element.getSchemaType, parents ++ List(element.getSchemaType)).dataType
+          val nullable = element.getMinOccurs == 0 || isChoice
+          val dataType = if (element.getMaxOccurs > 1) ArrayType(baseType) else baseType
+          Seq(StructField(element.getName, dataType, nullable))
+        } else if (element.getRef != null && element.getRef.getTarget != null && element.getRef.getTarget.getSchemaType != null && element.getRef.getTarget.getSchemaType.isInstanceOf[XmlSchemaComplexType]){
+          if (element.getRef.getTarget.getSchemaType.asInstanceOf[XmlSchemaComplexType].isAbstract){
+            val abstractTypeName = element.getRef.getTarget.getName
+            // Elements with substitutionGroup as abstract type
+            val derivedTypes = xmlSchema.getSchemaTypes.values().iterator().asScala.toList
+              .filter{x=> x.isInstanceOf[XmlSchemaComplexType] &&
+                x.asInstanceOf[XmlSchemaComplexType].getContentModel != null &&
+                x.asInstanceOf[XmlSchemaComplexType].getContentModel.getContent != null &&
+                x.asInstanceOf[XmlSchemaComplexType].getContentModel.getContent.isInstanceOf[XmlSchemaComplexContentExtension] &&
+                x.asInstanceOf[XmlSchemaComplexType].getContentModel.getContent.asInstanceOf[XmlSchemaComplexContentExtension]
+                  .getBaseTypeName.getLocalPart.equals(abstractTypeName) }
+            derivedTypes.map{ derivedType =>
+              val dtEntry = xmlSchema.getElements.entrySet().asScala.toList.filter{entry => entry.getValue.getSchemaTypeName.equals(derivedType.getQName)}
+              val fieldName = dtEntry.head.getKey.getLocalPart
+              val schemaType = dtEntry.head.getValue.getSchemaType
+              val baseType = getStructField(xmlSchema, schemaType, parents ++ List(schemaType)).dataType
+              val dataType = if (dtEntry.head.getValue.getMaxOccurs > 1) ArrayType(baseType) else baseType
+              StructField(fieldName, dataType, dtEntry.head.getValue.getMinOccurs == 0 || derivedTypes.size > 1)
+            }
+          } else {
+            val baseType = getStructField(xmlSchema, element.getRef.getTarget.getSchemaType, parents ++ List(element.getRef.getTarget.getSchemaType)).dataType
+            val dataType = if (element.getRef.getTarget.getMaxOccurs > 1) ArrayType(baseType) else baseType
+            val nullable = element.getRef.getTarget.getMinOccurs == 0 || isChoice
+            Seq(StructField(element.getRef.getTarget.getName, dataType, nullable))
+          }
+        } else if (element.getRef != null && element.getRef.getTarget != null && element.getRef.getTarget.getSchemaType != null && element.getRef.getTarget.getSchemaType.isInstanceOf[XmlSchemaSimpleType]){
+          val baseType = getStructField(xmlSchema, element.getRef.getTarget.getSchemaType, parents ++ List(element.getRef.getTarget.getSchemaType)).dataType
+          val dataType = if (element.getRef.getTarget.getMaxOccurs > 1) ArrayType(baseType) else baseType
+          val nullable = element.getRef.getTarget.getMinOccurs == 0 || isChoice
+          Seq(StructField(element.getRef.getTarget.getName, dataType, nullable))
+        } else {
+          Seq.empty
+        }
+
+      case particle: XmlSchemaGroupParticle =>
+        particle match {
+          case all: XmlSchemaAll =>
+            all.getItems.asScala
+              .filter{ item =>
+                (item.isInstanceOf[XmlSchemaElement] && parents.filter(x=> item.asInstanceOf[XmlSchemaElement].getSchemaType eq x).size == 0) || !item.isInstanceOf[XmlSchemaElement]
+              }
+              .flatMap{ x =>
+              getParticleFields(xmlSchema, x.asInstanceOf[XmlSchemaParticle], parents)
+            }
+          case choice: XmlSchemaChoice =>
+            choice.getItems.asScala
+              .filter{ item =>
+                (item.isInstanceOf[XmlSchemaElement] && parents.filter(x=> item.asInstanceOf[XmlSchemaElement].getSchemaType eq x).size == 0) || !item.isInstanceOf[XmlSchemaElement]
+              }
+              .flatMap{ x =>
+              getParticleFields(xmlSchema, x.asInstanceOf[XmlSchemaParticle], parents, true)
+            }
+          case sequence: XmlSchemaSequence =>
+            sequence.getItems.asScala
+              .filter{ item =>
+                (item.isInstanceOf[XmlSchemaElement] && parents.filter(x=> item.asInstanceOf[XmlSchemaElement].getSchemaType eq x).size == 0) || !item.isInstanceOf[XmlSchemaElement]
+              }
+              .flatMap{ x =>
+              getParticleFields(xmlSchema, x.asInstanceOf[XmlSchemaParticle], parents)
+            }
+          case _ =>
+            Seq.empty
+        }
+
+      case ref: XmlSchemaGroupRef =>
+        ref.getParticle match {
+          case all: XmlSchemaAll =>
+            all.getItems.asScala
+              .filter{ item =>
+                (item.isInstanceOf[XmlSchemaElement] && parents.filter(x=> item.asInstanceOf[XmlSchemaElement].getSchemaType eq x).size == 0) || !item.isInstanceOf[XmlSchemaElement]
+              }
+              .flatMap{ x =>
+              getParticleFields(xmlSchema, x.asInstanceOf[XmlSchemaParticle], parents)
+            }
+          case choice: XmlSchemaChoice =>
+            choice.getItems.asScala
+              .filter{ item =>
+                (item.isInstanceOf[XmlSchemaElement] && parents.filter(x=> item.asInstanceOf[XmlSchemaElement].getSchemaType eq x).size == 0) || !item.isInstanceOf[XmlSchemaElement]
+              }
+              .flatMap{ x =>
+              getParticleFields(xmlSchema, x.asInstanceOf[XmlSchemaParticle], parents, true)
+            }
+          case sequence: XmlSchemaSequence =>
+            sequence.getItems.asScala
+              .filter{ item =>
+                (item.isInstanceOf[XmlSchemaElement] && parents.filter(x=> item.asInstanceOf[XmlSchemaElement].getSchemaType eq x).size == 0) || !item.isInstanceOf[XmlSchemaElement]
+              }
+              .flatMap{ x =>
+              getParticleFields(xmlSchema, x.asInstanceOf[XmlSchemaParticle], parents)
+            }
+          case _ =>
+            Seq.empty
+        }
+
+      case _ =>
+        Seq.empty
+    }
+    childFields
+  }
+
+  private def getAttributeFields(xmlSchema: XmlSchema, attrList: List[XmlSchemaAttributeOrGroupRef]): Seq[StructField] = {
+    val attributes = attrList.flatMap { attr =>
+      attr match {
+        case attribute: XmlSchemaAttribute =>
+          val attrType = attribute.getSchemaTypeName match {
+            case null => StringType
+            case t => getStructField(xmlSchema, xmlSchema.getParent.getTypeByQName(t)).dataType
+          }
+          Seq(StructField(s"_${attribute.getName}", attrType, attribute.getUse != XmlSchemaUse.REQUIRED))
+        case ref: XmlSchemaAttributeGroupRef =>
+          getAttributeFields(xmlSchema, ref.getRef.getTarget.getAttributes.asScala.map { x => x.asInstanceOf[XmlSchemaAttributeOrGroupRef] }.toList)
+      }
+    }.toSeq
+    attributes
+  }
+
+  private def getStructType(xmlSchema: XmlSchema, rootElement: String = ""): StructType = {
+    StructType(
+      (if (rootElement.isEmpty) xmlSchema.getElements.asScala
+        else xmlSchema.getElements.asScala.filter{entry => entry._2.getName.equalsIgnoreCase(rootElement)}
+        ).toSeq.map { case (_, schemaElement) =>
+          val schemaType = schemaElement.getSchemaType
+          val rootType = getStructField(xmlSchema, schemaType, List(schemaType) )
+          StructField(schemaElement.getName, rootType.dataType, schemaElement.getMinOccurs == 0)
+      }
+    )
   }
 
 }

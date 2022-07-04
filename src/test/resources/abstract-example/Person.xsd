@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema
+	targetNamespace="persistence"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:impl="persistence" 
+	xmlns:base="base.persistence"
+	xmlns:persistence="persistence"
+	elementFormDefault="qualified">
+	<xsd:import namespace="base.persistence" schemaLocation="BaseDocument.xsd"/>
+    <xsd:element name="person" type="impl:Person"/>
+	<xsd:complexType name="Person">
+    <xsd:complexContent>
+    <xsd:extension base="base:BaseDocument">
+        <xsd:sequence>
+	        <xsd:element name="firstName" type="xsd:string" minOccurs="1" maxOccurs="1" />
+	        <xsd:element name="middleName" type="xsd:string" minOccurs="0" maxOccurs="1" />
+	        <xsd:element name="lastName" type="xsd:string" minOccurs="1" maxOccurs="1" />
+	        <xsd:element name="salutationName" type="xsd:string" minOccurs="0" maxOccurs="1" />
+	        <xsd:element name="suffixName" type="xsd:string" minOccurs="0" maxOccurs="1" />
+	        <xsd:element name="birthDate" type="xsd:date" minOccurs="0" maxOccurs="1" />
+	        <xsd:element name="countyName" type="xsd:string" minOccurs="0" maxOccurs="1" />
+	        <xsd:element name="countyFipsCode" type="xsd:string" minOccurs="0" maxOccurs="1" />
+	        <xsd:element name="zipPlus4Code" type="xsd:string" minOccurs="0" maxOccurs="1" />
+	        <xsd:element name="streetName1" type="xsd:string" minOccurs="0" maxOccurs="1" />
+	        <xsd:element name="streetName2" type="xsd:string" minOccurs="0" maxOccurs="1" />
+	        <xsd:element name="cityName" type="xsd:string" minOccurs="0" maxOccurs="1" />
+	        <xsd:element name="stateCode" type="xsd:string" minOccurs="0" maxOccurs="1" />
+	        <xsd:element name="countryCode" type="xsd:string" minOccurs="0" maxOccurs="1" />
+        </xsd:sequence>
+    </xsd:extension>
+    </xsd:complexContent>
+    </xsd:complexType>
+</xsd:schema>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema
+	targetNamespace="persistence"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:impl="persistence" 
+	xmlns:persistence="persistence"
+	elementFormDefault="qualified">
+	<xsd:include schemaLocation="Person.xsd"/>
+	<xsd:include schemaLocation="Organization.xsd"/>
+    <xsd:element name="issuerUser" type="impl:IssuerUser"/>
+	<xsd:complexType name="IssuerUser">
+        <xsd:sequence>
+	        <xsd:element name="emailAddressName" type="xsd:string" minOccurs="1" maxOccurs="1" />
+	        <xsd:element name="person" type="persistence:Person" minOccurs="1" maxOccurs="1"/>
+	        <xsd:element name="organization" type="persistence:Organization" minOccurs="0" maxOccurs="1"/>
+	        <xsd:element name="role" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+	        <xsd:element name="priority" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+        </xsd:sequence>
+    </xsd:complexType>
+</xsd:schema>

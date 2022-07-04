@@ -1,0 +1,485 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:emf="event" targetNamespace="event" elementFormDefault="qualified" attributeFormDefault="unqualified">
+    <xs:element name="emf-event" type="emf:emf-event-type"/>
+    <xs:complexType name="emf-event-type">
+        <xs:sequence>
+            <xs:element name="emf-header" type="emf:emf-header-type" minOccurs="1" maxOccurs="1"/>
+            <xs:element name="raised-by" type="emf:raised-by-type" minOccurs="1" maxOccurs="1"/>
+            <xs:element name="event-details" type="emf:event-details-type" minOccurs="1" maxOccurs="1"/>
+        </xs:sequence>
+        <xs:attributeGroup ref="emf:attr-group-emf-event"/>
+    </xs:complexType>
+
+    <xs:complexType name="emf-header-type">
+        <xs:sequence>
+            <xs:element name="category" minOccurs="1" maxOccurs="1">
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:enumeration value="audit"/>
+                        <xs:enumeration value="error"/>
+                        <xs:enumeration value="trace"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:element>
+            <xs:element name="sub-category" minOccurs="1" maxOccurs="1">
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:enumeration value="integration"/>
+                        <xs:enumeration value="stage"/>
+                        <xs:enumeration value="internal"/>
+                        <xs:enumeration value="performance"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:element>
+            <xs:element name="severity" type="emf:severity-type" minOccurs="1" maxOccurs="1"/>
+            <xs:element name="creation-time" type="xs:string" minOccurs="1" maxOccurs="1"/>
+            <xs:element name="participant-id" type="emf:participant-id-type" minOccurs="1" maxOccurs="1"/>
+            <xs:element name="message-id" minOccurs="1" maxOccurs="1">
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:minLength value="1"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:element>
+            <xs:element name="participant-message-id" minOccurs="0" maxOccurs="1">
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:minLength value="1"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:element>
+            <xs:element name="participant-created-time" type="xs:string" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="participant-expire-time" type="xs:string" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="related-message-id" minOccurs="0" maxOccurs="1">
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:minLength value="1"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:simpleType name="severity-type">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="LOW"/>
+            <xs:enumeration value="MEDIUM"/>
+            <xs:enumeration value="HIGH"/>
+            <xs:enumeration value="SEVERE"/>
+            <xs:enumeration value="FATAL"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:complexType name="raised-by-type">
+        <xs:sequence>
+            <xs:element name="component-type" type="emf:component-type-type" minOccurs="1" maxOccurs="1"/>
+            <xs:element name="component-name" type="emf:component-name-type" minOccurs="1" maxOccurs="1"/>
+            <xs:element name="host" type="xs:string" minOccurs="1" maxOccurs="1"/>
+            <xs:element name="process" minOccurs="1" maxOccurs="1">
+                <xs:simpleType>
+                    <xs:restriction base="xs:integer">
+                        <xs:pattern value="\d+"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:simpleType name="component-type-type">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="Service"/>
+            <xs:enumeration value="Gateway"/>
+            <xs:enumeration value="Application Component"/>
+            <xs:enumeration value="Component Type Not Provided"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:complexType name="component-name-type">
+        <xs:simpleContent>
+            <xs:extension base="emf:component-name-restriction-type">
+                <xs:attributeGroup ref="emf:attr-group-component-name"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+    <xs:simpleType name="component-name-restriction-type">
+        <xs:restriction base="xs:string">
+            <xs:minLength value="1"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:complexType name="event-details-type">
+        <xs:sequence>
+            <xs:element name="msg-text" type="xs:string" minOccurs="1" maxOccurs="1"/>
+            <xs:element ref="emf:extended-message-segment" minOccurs="1" maxOccurs="1"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:element name="extended-message-segment" type="emf:extended-message-segment" />
+
+    <xs:complexType name="extended-message-segment" abstract="true">
+        <xs:sequence/>
+    </xs:complexType>
+    
+    <xs:element name="integrating-system" type="emf:participant-id-type"/>
+    <xs:simpleType name="participant-id-type">
+        <xs:restriction base="xs:string">
+            <xs:pattern value="\d{2}\.[A-Z\*]{3}\.\w{3}\.\w{6}"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:element name="integrating-system-uri" type="emf:integrating-system-uri-type"/>
+    <xs:complexType name="integrating-system-uri-type">
+        <xs:simpleContent>
+            <xs:extension base="emf:integrating-system-uri-length">
+                <xs:attributeGroup ref="emf:attr-group-operation-name"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+    <xs:simpleType name="integrating-system-uri-length">
+        <xs:restriction base="xs:anyURI">
+            <xs:minLength value="1"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:element name="direction" type="emf:direction-type"/>
+    <xs:complexType name="direction-type">
+        <xs:simpleContent>
+            <xs:extension base="emf:direction-enumeration-type">
+                <xs:attributeGroup ref="emf:attr-group-level"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+    <xs:simpleType name="direction-enumeration-type">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="inbound"/>
+            <xs:enumeration value="outbound"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:element name="exchanged-message" type="emf:exchanged-message-type"/>
+    <xs:complexType name="exchanged-message-type">
+        <xs:complexContent>
+            <xs:extension base="xs:anyType">
+                <xs:attributeGroup ref="emf:attr-group-name"/>
+                <xs:attributeGroup ref="emf:attr-group-mime"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+    <xs:element name="property" type="emf:property-type"/>
+    <xs:element name="service-metadata" type="emf:service-metadata-type"/>
+    <xs:complexType name="service-metadata-type">
+        <xs:sequence>
+            <xs:element ref="emf:property" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:attributeGroup ref="emf:attr-group-respcodes"/>
+    </xs:complexType>
+    <xs:simpleType name="property-length-type">
+        <xs:restriction base="xs:string">
+            <xs:minLength value="1"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:complexType name="property-type">
+        <xs:simpleContent>
+            <xs:extension base="emf:property-length-type">
+                <xs:attributeGroup ref="emf:attr-group-property"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+    <xs:element name="properties" type="emf:properties-type"/>
+    <xs:complexType name="properties-type">
+        <xs:sequence>
+            <xs:element ref="emf:property" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+    
+    <xs:element name="audit-integration-segment" substitutionGroup="emf:extended-message-segment" type="emf:audit-integration-type"/>
+    
+    <xs:complexType name="audit-integration-type">
+        <xs:complexContent>
+            <xs:extension base="emf:extended-message-segment">
+                <xs:sequence>
+                    <xs:element ref="emf:integrating-system" minOccurs="1" maxOccurs="1" />
+                    <xs:element ref="emf:integrating-system-uri" minOccurs="1" maxOccurs="1" />
+                    <xs:element ref="emf:direction" minOccurs="1" maxOccurs="1" />
+                    <xs:element ref="emf:exchanged-message" minOccurs="1" maxOccurs="1" />
+                    <xs:element ref="emf:properties" minOccurs="1" maxOccurs="1"/>
+                    <xs:element ref="emf:service-metadata" minOccurs="1" maxOccurs="unbounded"/>
+                </xs:sequence>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+    
+    <xs:element name="audit-stage-segment" substitutionGroup="emf:extended-message-segment" type="emf:audit-stage-type"/>
+    
+    <xs:complexType name="audit-stage-type">
+        <xs:complexContent>
+            <xs:extension base="emf:extended-message-segment">
+                <xs:sequence>
+                    <xs:element name="stage-code" type="xs:string" minOccurs="1" maxOccurs="1"/>
+                    <xs:element name="stage-description" type="xs:string" minOccurs="1" maxOccurs="1"/>
+                    <xs:element name="stage-state" type="emf:stage-state-type" minOccurs="1" maxOccurs="1"/>
+                    <xs:element ref="emf:properties" minOccurs="1" maxOccurs="1"/>
+                </xs:sequence>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+    
+    <xs:simpleType name="stage-state-type">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="started"/>
+            <xs:enumeration value="inProgress"/>
+            <xs:enumeration value="completed"/>
+            <xs:enumeration value="failed"/>
+        </xs:restriction>
+    </xs:simpleType>
+    
+    <xs:complexType name="category-type">
+        <xs:sequence>
+            <xs:element name="sub-category" type="emf:sub-category-type" minOccurs="1" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:attributeGroup ref="emf:attr-group-name"></xs:attributeGroup>
+    </xs:complexType>
+    
+    <xs:complexType name="sub-category-type">
+        <xs:sequence>
+            <xs:element name="priority" type="emf:priority-type" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="validation" type="emf:validation-type" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="enabled" type="emf:flag-type" minOccurs="0" maxOccurs="1"/>
+        </xs:sequence>
+        <xs:attributeGroup ref="emf:attr-group-name"/>
+    </xs:complexType>
+    
+    <xs:simpleType name="priority-type">
+        <xs:restriction base="xs:int">
+            <xs:enumeration value="1"/>
+            <xs:enumeration value="2"/>
+            <xs:enumeration value="3"/>
+        </xs:restriction>
+    </xs:simpleType>
+    
+    <xs:complexType name="validation-type">
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute ref="emf:enabled"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+    
+    <xs:attribute name="enabled" default="true" type="emf:flag-type"/>
+    
+    <xs:simpleType name="flag-type">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+        </xs:restriction>
+    </xs:simpleType>
+    
+    <xs:element name="error-class" type="emf:error-class-type"/>
+    <xs:element name="error-message" type="emf:error-message-type"/>
+    <xs:element name="stack-trace" type="emf:stack-trace-type"/>
+    <xs:element name="is-retryable" type="xs:boolean"/>
+    <xs:simpleType name="error-class-type">
+        <xs:restriction base="xs:string"/>
+    </xs:simpleType>
+    <xs:simpleType name="error-message-type">
+        <xs:restriction base="xs:string"/>
+    </xs:simpleType>
+    <xs:simpleType name="stack-trace-type">
+        <xs:restriction base="xs:string"/>
+    </xs:simpleType>
+    
+    <xs:element name="error-integration-segment" substitutionGroup="emf:extended-message-segment" type="emf:error-integration-type"/>
+    
+    <xs:complexType name="error-integration-type">
+        <xs:complexContent>
+            <xs:extension base="emf:extended-message-segment">
+                <xs:sequence>
+                    <xs:element ref="emf:integrating-system" minOccurs="1" maxOccurs="1"/>
+                    <xs:element ref="emf:integrating-system-uri" minOccurs="1" maxOccurs="1"/>
+                    <xs:element ref="emf:direction" minOccurs="1" maxOccurs="1"/>
+                    <xs:element ref="emf:error-class" minOccurs="1" maxOccurs="1"/>
+                    <xs:element ref="emf:error-message" minOccurs="1" maxOccurs="1"/>
+                    <xs:element ref="emf:stack-trace" minOccurs="1" maxOccurs="1"/>
+                    <xs:element ref="emf:is-retryable" minOccurs="0" maxOccurs="1"/>
+                    <xs:element ref="emf:exchanged-message" minOccurs="1" maxOccurs="1"/>
+                    <xs:element ref="emf:properties" minOccurs="1" maxOccurs="1"/>
+                    <xs:element ref="emf:service-metadata" minOccurs="1" maxOccurs="unbounded"/>
+                </xs:sequence>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+    
+    <xs:element name="error-internal-segment" substitutionGroup="emf:extended-message-segment" type="emf:error-internal-type"/>
+    
+    <xs:complexType name="error-internal-type">
+        <xs:complexContent>
+            <xs:extension base="emf:extended-message-segment">
+                <xs:sequence>
+                    <xs:element ref="emf:error-class" minOccurs="1" maxOccurs="1"/>
+                    <xs:element ref="emf:error-message" minOccurs="1" maxOccurs="1"/>
+                    <xs:element ref="emf:stack-trace" minOccurs="1" maxOccurs="1"/>
+                    <xs:element ref="emf:is-retryable" minOccurs="0" maxOccurs="1"/>
+                    <xs:element ref="emf:properties" minOccurs="1" maxOccurs="1"/>
+                </xs:sequence>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+    
+    <xs:element name="trace-performance-segment" substitutionGroup="emf:extended-message-segment" type="emf:trace-performance-type"/>
+    
+    <xs:complexType name="trace-performance-type">
+        <xs:complexContent>
+            <xs:extension base="emf:extended-message-segment">
+                <xs:sequence>
+                    <xs:element name="stats-name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+                    <xs:element name="stats-type" type="emf:stats-type-type" minOccurs="1" maxOccurs="1"/>
+                    <xs:element name="value" type="xs:int" minOccurs="1" maxOccurs="1"/>
+                    <xs:element name="unit" type="emf:unit-type" minOccurs="1" maxOccurs="1"/>
+                    <xs:element ref="emf:properties" minOccurs="1" maxOccurs="1"/>
+                </xs:sequence>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+    
+    <xs:simpleType name="unit-type">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="ms"/>
+            <xs:enumeration value="sec"/>
+        </xs:restriction>
+    </xs:simpleType>
+    
+    <xs:simpleType name="stats-type-type">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="rate"/>
+            <xs:enumeration value="count"/>
+            <xs:enumeration value="time"/>
+        </xs:restriction>
+    </xs:simpleType>    
+    
+    <xs:attributeGroup name="attr-group-emf-event">
+        <xs:attribute name="id" use="required">
+            <xs:simpleType>
+                <xs:restriction base="xs:string">
+                    <xs:pattern value="\w{8}-\w{4}-\w{4}-\w{4}-\w{12}"/>
+                </xs:restriction>
+            </xs:simpleType>
+        </xs:attribute>
+        <xs:attribute name="validation-status" use="optional">
+            <xs:simpleType>
+                <xs:restriction base="xs:string">
+                    <xs:enumeration value="valid"/>
+                    <xs:enumeration value="invalid"/>
+                </xs:restriction>
+            </xs:simpleType>
+        </xs:attribute>
+    </xs:attributeGroup>
+    <xs:attributeGroup name="attr-group-level">
+        <xs:attribute name="level">
+            <xs:simpleType>
+                <xs:restriction base="xs:integer">
+                    <xs:enumeration value="1"/>
+                    <xs:enumeration value="2"/>
+                    <xs:enumeration value="3"/>
+                    <xs:enumeration value="4"/>
+                    <xs:enumeration value="5"/>
+                    <xs:enumeration value="6"/>
+                    <xs:enumeration value="7"/>
+                    <xs:enumeration value="8"/>
+                </xs:restriction>
+            </xs:simpleType>
+        </xs:attribute>
+    </xs:attributeGroup>
+    <xs:attributeGroup name="attr-group-name">
+        <xs:attribute name="name" type="xs:string"/>
+    </xs:attributeGroup>
+    <xs:attributeGroup name="attr-group-mime">
+        <xs:attribute name="mime-type" type="xs:string"/>
+    </xs:attributeGroup>
+    <xs:attributeGroup name="attr-group-property">
+        <xs:attribute name="index" use="optional">
+            <xs:simpleType>
+                <xs:restriction base="xs:string">
+                    <xs:enumeration value="noindex"/>
+                </xs:restriction>
+            </xs:simpleType>
+        </xs:attribute>
+        <xs:attribute name="key" use="required">
+            <xs:simpleType>
+                <xs:union memberTypes="emf:keyEnum emf:keyAnyString"/>
+            </xs:simpleType>
+        </xs:attribute>
+    </xs:attributeGroup>
+    <xs:attributeGroup name="attr-group-component-name">
+        <xs:attribute name="channel-id">
+            <xs:simpleType>
+                <xs:restriction base="xs:string">
+                    <xs:enumeration value="EMF"/>
+                    <xs:enumeration value="T1"/>
+                    <xs:enumeration value="T2"/>
+                    <xs:enumeration value="T3"/>
+                    <xs:enumeration value="T4"/>
+                    <xs:enumeration value="T5"/>
+                    <xs:enumeration value="T6"/>
+                    <xs:enumeration value="T7"/>
+                    <xs:enumeration value="T8"/>
+                </xs:restriction>
+            </xs:simpleType>
+        </xs:attribute>
+    </xs:attributeGroup>
+    <xs:attributeGroup name="attr-group-operation-name">
+        <xs:attribute name="operation-name" use="optional">
+            <xs:simpleType>
+                <xs:restriction base="xs:string">
+                    <xs:minLength value="1"/>
+                </xs:restriction>
+            </xs:simpleType>
+        </xs:attribute>
+    </xs:attributeGroup>
+    <xs:attributeGroup name="attr-group-respcodes">
+        <xs:attribute name="response-code-uri" use="optional">
+            <xs:simpleType>
+                <xs:union memberTypes="emf:src-emf-codes emf:src-tds-codes emf:src-java-codes"/>
+            </xs:simpleType>
+        </xs:attribute>
+    </xs:attributeGroup>
+    <xs:simpleType name="src-java-codes">
+        <xs:restriction base="xs:anyURI">
+            <xs:pattern value="/response-codes/JAVA/(org|com|net|mil|edu|us)\..+"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="src-emf-codes">
+        <xs:restriction base="xs:anyURI">
+            <xs:pattern value="/response-codes/EMF/H(E|S|X)\d{6}"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="src-tds-codes">
+        <xs:restriction base="xs:anyURI">
+            <xs:pattern value="/response-codes/TDS/(EQUIFAX|EXPERIAN|IRS|SSA|SYMANTEC)/.+"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="keyEnum">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="ActivityDate"/>
+            <xs:enumeration value="CaseNumber"/>
+            <xs:enumeration value="CaseType"/>
+            <xs:enumeration value="FinalDecision"/>
+            <xs:enumeration value="FinalDecisionCode"/>
+            <xs:enumeration value="IdentificationID"/>
+            <xs:enumeration value="IndividualRequest"/>
+            <xs:enumeration value="IndividualResponse"/>
+            <xs:enumeration value="MessageID"/>
+            <xs:enumeration value="OrganizationCode"/>
+            <xs:enumeration value="OtherCoverage"/>
+            <xs:enumeration value="ReferenceID"/>
+            <xs:enumeration value="ReferenceNumber"/>
+            <xs:enumeration value="Referral-ActivityDate"/>
+            <xs:enumeration value="ReportDate"/>
+            <xs:enumeration value="ReportTime"/>
+            <xs:enumeration value="RequestID"/>
+            <xs:enumeration value="ResponseCode"/>
+            <xs:enumeration value="ReturnStatus"/>
+            <xs:enumeration value="ReturnStatusMsg"/>
+            <xs:enumeration value="SessionIdentification"/>
+            <xs:enumeration value="StatusCode"/>
+            <xs:enumeration value="StatusMessage"/>
+            <xs:enumeration value="SystemCode"/>
+            <xs:enumeration value="Timestamp"/>
+            <xs:enumeration value="WebMethodName"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="keyAnyString">
+        <xs:restriction base="xs:string"/>
+    </xs:simpleType>
+</xs:schema>
